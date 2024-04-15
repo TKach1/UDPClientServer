@@ -6,6 +6,8 @@ var crypto = require("crypto");
 
 const byteSize = (str) => new Blob([str]).size;
 
+const BUFFER = 8000;
+
 server.on("error", (err) => {
   console.error(`server error:\n${err.stack}`);
   server.close();
@@ -14,21 +16,30 @@ server.on("error", (err) => {
 server.on("message", (msg, rinfo) => {
   console.log(`server got: ${msg} from ${rinfo.address}:${rinfo.port}`);
 
-  fs.readFile(msg, { encoding: "utf8", flag: "r" }, function (err, data) {
+  fs.readFile(msg, function (err, data) {
     if (err) server.send("404 - File not found", rinfo.port, rinfo.address);
     else {
-      data += "FINAL";
-      const packetSize =
-        data.length /
-        ~~(Buffer.byteLength(data) / server.getSendBufferSize() + 1);
-      const re = new RegExp("(.|[\\r\\n]){1," + ~~packetSize + "}", "g");
-      const dataSanitized = data.match(re);
-      console.log(dataSanitized.length);
+      data = Buffer.from(data);
+	  console.log(new Int8Array(data));
+      const a = ~~(data.length / BUFFER + 1);
+      //const packetSize = data.toString().length / a;
+      //const re = new RegExp("(.|[\\r\\n]){1," + ~~packetSize + "}", "g");
+      //const dataSanitized = data.toString().match(re).forEach((d) => {return Buffer.from(d)});
+      let dataSanitized = [];
+      for(let i = 0; i < a; i++){
+          dataSanitized.push(data.subarray(BUFFER*i, BUFFER*(i+1)));
+      }
       const checksum = generateChecksum(data);
+      console.log(checksum);
+
       server.send(msg + ":" + checksum, rinfo.port, rinfo.address);
+      let i = 1;
       dataSanitized.forEach((d) => {
-        server.send(d, rinfo.port, rinfo.address);
+        server.send(new Int8Array(d), rinfo.port, rinfo.address);
+        console.log(i+ "/" +dataSanitized.length);
+        i++;
       });
+      server.send("FINAL", rinfo.port, rinfo.address);
     }
     console.log(`server sent: ` + msg);
   });

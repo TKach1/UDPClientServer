@@ -4,22 +4,24 @@ var buffer = require("buffer");
 
 var fs = require("fs");
 
-// creating a client socket
+var crypto = require("crypto");
+
 var client = udp.createSocket("udp4");
 
-const finalFile = {
-  data: "",
+var erro = false; //variável de erro
+
+let finalFile = {
+  data: [],
   name: "",
   hash: "",
 };
-//buffer msg
-var data = Buffer.from("image.png");
+
+var data = Buffer.from("cr7.jpg");
 
 client.on("message", function (msg, info) {
   console.log("Data received from server");
   if (msg.toString().slice(0, 3) == "404") {
     console.log("Data received from server : " + msg.toString());
-    console.log("dasd");
     return;
   }
 
@@ -28,9 +30,14 @@ client.on("message", function (msg, info) {
     finalFile.name = t[0];
     finalFile.hash = t[1];
   } else {
-    finalFile.data += msg.toString();
+    if(!erro){
+      finalFile.data.push(new Buffer.from(msg));
+    } else {
+      erro = !erro;
+    }
+    //console.log(finalFile.data);
   }
-  console.log("Data received from server : " + msg.toString());
+
   console.log(
     "Received %d bytes from %s:%d\n",
     msg.length,
@@ -38,18 +45,46 @@ client.on("message", function (msg, info) {
     info.port,
   );
 
-  console.log(finalFile.name);
 
   if (msg.toString().endsWith("FINAL")) {
-    finalFile.data = finalFile.data.replace("FINAL", "");
-    createFile();
+    const dataSanitized = Buffer.concat(finalFile.data);
+    finalFile.data = new Int8Array(dataSanitized.slice(0, dataSanitized.length-5));
+    if (check())
+      createFile();
+    //console.log(finalFile.hash);
+    //console.log(generateChecksum(finalFile.data))
   }
 });
 
+function check(){
+  const hash = generateChecksum(finalFile.data);
+  if (finalFile.hash == hash){
+    console.log("arquivo válido");
+    return true;
+  }else{
+    console.log("Hash recebido: " + hash);
+    console.log("Hash original: " + finalFile.hash);
+    console.log("\narquivo inválido, requisitando novo...");
+    finalFile = {
+      data: [],
+      name: "",
+      hash: "",
+    };
+    client.send(data, 41337, "localhost", function (error) {
+      if (error) {
+        client.close();
+      } else {
+        console.log("\nData recovery sent!");
+      }
+    });
+    return false;
+  }
+}
+
 function createFile() {
-  fs.writeFile(finalFile.name, finalFile.data, function (err) {
+  fs.writeFile(finalFile.name, new Int8Array(Buffer.from(finalFile.data)), function (err) {
     if (err) console.log("ERROR");
-    console.log("SALVO");
+    console.log("SALVO " + finalFile.name);
   });
 }
 
@@ -60,3 +95,10 @@ client.send(data, 41337, "localhost", function (error) {
     console.log("Data sent !!");
   }
 });
+
+function generateChecksum(str, algorithm, encoding) {
+  return crypto
+    .createHash(algorithm || "md5")
+    .update(str, "utf8")
+    .digest(encoding || "hex");
+}
