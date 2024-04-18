@@ -8,7 +8,9 @@ var crypto = require("crypto");
 
 var client = udp.createSocket("udp4");
 
-var erro = false; //variável de erro
+var erro = true; //variável de erro
+
+const IP = "localhost";
 
 let finalFile = {
   data: [],
@@ -16,14 +18,17 @@ let finalFile = {
   hash: "",
 };
 
+
 var data = Buffer.from("cr7.jpg");
 
 client.on("message", function (msg, info) {
-  console.log("Data received from server");
+  //console.log("Data received from server");
   if (msg.toString().slice(0, 3) == "404") {
     console.log("Data received from server : " + msg.toString());
     return;
   }
+
+  
 
   if (finalFile.name == "") {
     const t = msg.toString().split(":");
@@ -32,18 +37,19 @@ client.on("message", function (msg, info) {
   } else {
     if(!erro){
       finalFile.data.push(new Buffer.from(msg));
+      console.log(finalFile.data.length);
     } else {
       erro = !erro;
     }
     //console.log(finalFile.data);
   }
 
-  console.log(
+  /*console.log(
     "Received %d bytes from %s:%d\n",
     msg.length,
     info.address,
     info.port,
-  );
+  );*/
 
 
   if (msg.toString().endsWith("FINAL")) {
@@ -70,7 +76,7 @@ function check(){
       name: "",
       hash: "",
     };
-    client.send(data, 41337, "localhost", function (error) {
+    client.send(data, 41337, IP, function (error) {
       if (error) {
         client.close();
       } else {
@@ -88,7 +94,7 @@ function createFile() {
   });
 }
 
-client.send(data, 41337, "localhost", function (error) {
+client.send(data, 41337, IP, function (error) {
   if (error) {
     client.close();
   } else {

@@ -6,17 +6,17 @@ var crypto = require("crypto");
 
 const byteSize = (str) => new Blob([str]).size;
 
-const BUFFER = 8000;
+const BUFFER = 1000;
 
 server.on("error", (err) => {
   console.error(`server error:\n${err.stack}`);
   server.close();
 });
 
-server.on("message", (msg, rinfo) => {
+server.on("message", async(msg, rinfo) => {
   console.log(`server got: ${msg} from ${rinfo.address}:${rinfo.port}`);
 
-  fs.readFile(msg, function (err, data) {
+  await fs.readFile(msg, function (err, data) {
     if (err) server.send("404 - File not found", rinfo.port, rinfo.address);
     else {
       data = Buffer.from(data);
@@ -34,8 +34,9 @@ server.on("message", (msg, rinfo) => {
 
       server.send(msg + ":" + checksum, rinfo.port, rinfo.address);
       let i = 1;
-      dataSanitized.forEach((d) => {
+      dataSanitized.forEach( (d) => {
         server.send(new Int8Array(d), rinfo.port, rinfo.address);
+        //await sleep(1000);
         console.log(i+ "/" +dataSanitized.length);
         i++;
       });
@@ -49,6 +50,19 @@ server.on("listening", () => {
   const address = server.address();
   console.log(`server listening ${address.address}:${address.port}`);
 });
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+(async function(){
+  const sleep = ms => new Promise(resolve => setTimeout(resolve,ms))
+  console.log(1)
+  await sleep(1000);
+  console.log(2)
+})
 
 server.bind(41337);
 // Prints: server listening 0.0.0.0:41234
